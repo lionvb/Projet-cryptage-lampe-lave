@@ -17,3 +17,4 @@ L'architecture de la première version du projet sera principalement constituée
 1. Un script `setup.py` : chargé de créer les clés privées et publiques à partir de la photo publique. 
 2. Un script `cryptage.py` : chargé de crypter de la donnée à partir de la clé publique du destinataire.
 3. Un script `décryptage.py` : charge de décrypter un message reçu à partir de la clé privée. 
+4. UN script `main.py` : chargé d'exécuter tous les scripts depuis la racine + gestion des interruptions lors du changement de clés.
