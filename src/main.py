@@ -4,11 +4,14 @@ import os
 from chiffrement_dechiffrement.rsa_cles   import generer_cles_rsa
 from chiffrement_dechiffrement.cryptage   import chiffrer
 from chiffrement_dechiffrement.decryptage import dechiffrer
+from number_generator.setup import image_to_bytes, bytes_to_grands_entiers
+
+PHOTO_PATH = os.path.join("docs", "photo_lava_lamp.jpg")
 
 if __name__ == "__main__":
     # A remplacer par le generateur
-    nombre_1 = int(9426861206042897866691649560399289814634872072151098307165809898495902470614278983979314325730129566996069367595781295614820185427285694087126854627)  
-    nombre_2 = int(8714052839765081726485920163847291653902740183475029384756102938475601827364501928374650192837465019283746501928374650192837465019283746501928374651)
+    raw_bytes = image_to_bytes(PHOTO_PATH)
+    nombre_1, nombre_2 = bytes_to_grands_entiers(raw_bytes)
 
     # 1. Génération des clés RSA
     cle_pub, cle_priv = generer_cles_rsa(nombre_1, nombre_2)
