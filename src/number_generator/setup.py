@@ -45,7 +45,6 @@ Diagramme pour visualiser la pipeline :
 [2500 valeurs en ligne]
     ↓ tobytes()
 [2500 octets bruts]
---pas utilisé--
     ↓ sha256()
 [32 octets] = la clé de chiffrement
 
