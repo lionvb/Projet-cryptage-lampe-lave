@@ -18,3 +18,21 @@ L'architecture de la première version du projet sera principalement constituée
 2. Un script `cryptage.py` : chargé de crypter de la donnée à partir de la clé publique du destinataire.
 3. Un script `décryptage.py` : charge de décrypter un message reçu à partir de la clé privée. 
 4. UN script `main.py` : chargé d'exécuter tous les scripts depuis la racine + gestion des interruptions lors du changement de clés.
+
+## Pipeline
+
+Diagramme pour visualiser la pipeline de main.py :
+
+```
+image lava lamp
+        ↓ image_to_bytes()
+bytes brutes
+        ↓ bytes_to_grands_entiers()
+grands entiers (entropy seed)
+        ↓ generer_cles_rsa()
+clé RSA
+        ↓ chiffrer()
+message chiffé
+        ↓ dechiffrer()
+message déchiffré
+```
