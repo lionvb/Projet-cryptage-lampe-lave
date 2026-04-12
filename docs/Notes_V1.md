@@ -1,5 +1,7 @@
 # V1
 
+Cette première version est la plus simpliste du projet : elle servira de POC.
+
 ## Contraintes
 
 La première version du projet sera la version la plus simplifiée : le but étant de faire fonctionner avant de faire beau, nous commencerons avec les contraintes suivantes (volontairement les plus simples possibles) : 
