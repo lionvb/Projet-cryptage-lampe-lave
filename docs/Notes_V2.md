@@ -16,10 +16,11 @@ La deuxième version du projet, nous suivrons les contraintes suivantes (décid�
 
 L'architecture de la première version du projet sera principalement constituée de 4 scripts :
 
-1. Un script `setup.py` : chargé de créer les clés privées et publiques à partir de la photo publique. 
-2. Un script `cryptage.py` : chargé de crypter de la donnée à partir de la clé publique du destinataire.
-3. Un script `décryptage.py` : charge de décrypter un message reçu à partir de la clé privée. 
-4. UN script `main.py` : chargé d'exécuter tous les scripts depuis la racine.
+1. Un script `setup.py` : chargé de générer 2 grands nombres à partir de la photo publique. 
+2. Un script `rsa_cles.py` : chargé de générer les clés RSA à partir des 2 grands nombres.
+3. Un script `cryptage.py` : chargé de crypter de la donnée à partir de la clé publique du destinataire.
+4. Un script `décryptage.py` : charge de décrypter un message reçu à partir de la clé privée. 
+5. Un script `main.py` : chargé d'exécuter tous les scripts depuis la racine + gestion des interruptions lors du changement de clés.
 
 ## Pipeline
 
