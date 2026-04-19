@@ -1,22 +1,33 @@
-import cv2
 import numpy as np
 import hashlib
 from matplotlib import pyplot as plt 
+import cv2
+import os
+from random import randint
 
-def image_to_bytes(PHOTO_PATH: str) -> bytes :
-    # Chargement de l'image en n&b
-    image = cv2.imread(PHOTO_PATH, cv2.IMREAD_GRAYSCALE)
+def images_to_bytes(frames_dir: str) -> bytes:
+    extensions_valides = (".jpg", ".jpeg", ".png", ".bmp")
+    chemins = sorted([
+        os.path.join(frames_dir, f)
+        for f in os.listdir(frames_dir)
+        if f.lower().endswith(extensions_valides)
+    ])
 
-    # Rognage de l'image (isoler la lampe)
-    image_cropped = image[50:image.shape[0]-50, 390:image.shape[1]-390]
+    if not chemins:
+        raise ValueError(f"Aucune image trouvée dans : {frames_dir}")
 
-    # Réduire la taille de l'image (réduire la résolution)
-    image_50x50 = cv2.resize(image_cropped, (50, 50))
+    hashs_frames = []
+    for chemin in chemins:
+        image = cv2.imread(chemin, cv2.IMREAD_GRAYSCALE)
+        if image is None:
+            raise ValueError(f"Impossible de lire l'image : {chemin}")
 
-    # Génération de la clé depuis les pixels
-    raw_bytes = image_50x50.flatten().tobytes()     # formatage de la data pour hashlib : Matrice 50*50 -> Vecteur de 2500 bytes
-
-    return raw_bytes
+        image_50x50  = cv2.resize(image, (50, 50))
+        raw_bytes    = image_50x50.flatten().tobytes()
+        hash_frame   = hashlib.sha512(raw_bytes).digest()
+        hashs_frames.append(hash_frame)
+    hash_final = hashs_frames[randint(0, len(hashs_frames)-1)]
+    return hash_final
 
 def bytes_to_grands_entiers(raw_bytes: bytes) -> tuple[int, int]:
     """

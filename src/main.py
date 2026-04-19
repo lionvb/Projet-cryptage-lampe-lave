@@ -4,9 +4,9 @@ import os
 from chiffrement_dechiffrement.rsa_cles   import generer_cles_rsa
 from chiffrement_dechiffrement.cryptage   import chiffrer
 from chiffrement_dechiffrement.decryptage import dechiffrer
-from number_generator.setup import image_to_bytes, bytes_to_grands_entiers
+from number_generator.setup import images_to_bytes, bytes_to_grands_entiers
 
-PHOTO_PATH  = os.path.join("docs", "photo_lava_lamp.jpg")
+PHOTO_PATH = os.path.join("docs", "Pictures")
 INPUT_FILE  = os.path.join("docs", "message.txt")
 ENCRYPTED_FILE   = os.path.join("docs", "message_chiffre.txt")
 DECRYPTED_FILE   = os.path.join("docs", "message_dechiffre.txt")
@@ -23,7 +23,7 @@ def ecrire_fichier(path: str, contenu: str):
 
 if __name__ == "__main__":
     # Génération des clés RSA
-    raw_bytes = image_to_bytes(PHOTO_PATH)
+    raw_bytes = images_to_bytes(PHOTO_PATH)
     nombre_1, nombre_2 = bytes_to_grands_entiers(raw_bytes)
     cle_pub, cle_priv = generer_cles_rsa(nombre_1, nombre_2)
 
@@ -41,7 +41,7 @@ if __name__ == "__main__":
     message_dechiffre = dechiffrer(message_chiffre_bytes, cle_priv)
     ecrire_fichier(DECRYPTED_FILE, message_dechiffre)
     print(f"Fichier déchiffré écrit : {DECRYPTED_FILE}\n")
-    
+
     # 4. Vérification
     if texte_original == message_dechiffre:
         print("Succès ✅")
