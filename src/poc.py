@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 from random import randint
 import hashlib
 
-from chiffrement_dechiffrement.rsa_cles   import generer_cles_rsa
+from chiffrement_dechiffrement.rsa_cles   import generer_cles_rsa,seed_vers_grands_entiers
 from chiffrement_dechiffrement.cryptage   import chiffrer
 from chiffrement_dechiffrement.decryptage import dechiffrer
 from number_generator.setup               import images_to_bytes, bytes_to_grands_entiers
@@ -83,7 +83,7 @@ def demo_generation_entiers(frames_dir: str) -> tuple[int, int]:
 
     t0       = time.perf_counter()
     raw_bytes = images_to_bytes(frames_dir)
-    nb1, nb2 = bytes_to_grands_entiers(raw_bytes)
+    nb1, nb2 = seed_vers_grands_entiers(raw_bytes)
     duree    = time.perf_counter() - t0
 
     ok(f"Hash sélectionné       : 64 bytes (SHA-512 d'une frame tirée au sort)")
