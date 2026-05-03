@@ -1,2 +1,5 @@
 __pycache__/
 .venv/
+docs/message_chiffre.txt
+docs/message_dechiffre.txt+
+docs/message.txt
