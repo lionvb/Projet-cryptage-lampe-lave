@@ -37,7 +37,7 @@ pip install -r requirements.txt
 
 ---
 
-## V1 — Preuve de concept
+## V1 Preuve de concept
 
 L'objectif de cette version est de faire fonctionner la pipeline de bout en bout avec le minimum de complexité.
 
@@ -100,7 +100,7 @@ python poc.py
 
 ---
 
-## V2 — Multi-images et chiffrement de fichier
+## V2 Multi-images et chiffrement de fichier
 
 La V2 renforce l'entropie en passant d'une photo fixe à plusieurs captures d'écran d'une vidéo, et chiffre désormais un fichier `.txt` complet.
 
