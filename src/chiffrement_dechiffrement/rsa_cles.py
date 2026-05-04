@@ -2,6 +2,7 @@
 Génération des nombres premiers et des clés RSA.
 """
 import math
+import hashlib
 
 # TEST DE PRIMALITÉ — Miller-Rabin
 def est_premier(n: int) -> bool:
@@ -102,3 +103,52 @@ def generer_cles_rsa(nb_alea_1: int,nb_alea_2: int) -> tuple:
     cle_publique = {"n": n, "e": e}
     cle_privee   = {"n": n, "d": d}
     return cle_publique, cle_privee
+
+def seed_vers_grands_entiers(seed: bytes) -> tuple:
+    """
+    Dérive deux grands entiers de 512 bits depuis un hash (seed).
+    Principe — dérivation par étiquette  :
+
+    Chaque appel produit 64 octets. On répète et concatène jusqu'à
+    atteindre TARGET_BITS bits, puis on convertit en entier.
+ 
+    Pourquoi des étiquettes différentes ("RSA_P" / "RSA_Q") ?
+    → Garantit que nombre_1 ≠ nombre_2 même si la seed est courte,
+      car SHA-512("RSA_P" + seed) et SHA-512("RSA_Q" + seed) sont
+      cryptographiquement indépendants.
+ 
+    Paramètres
+    ----------
+    seed : bytes — hash issu de la source d'entropie du collègue
+                   (typiquement 64 octets / SHA-512, mais taille libre)
+ 
+    Retourne
+    --------
+    (nombre_1, nombre_2) : deux entiers de TARGET_BITS bits
+    """
+    TARGET_BITS  = 512          # taille souhaitée en bits pour p et q
+    TARGET_BYTES = TARGET_BITS // 8   # = 64 octets
+ 
+    if not isinstance(seed, bytes) or len(seed) == 0:
+        raise ValueError("seed doit être un bytes non vide.")
+ 
+    def deriver(etiquette: bytes) -> int:
+        """Produit un entier de TARGET_BITS bits depuis seed + étiquette."""
+        resultat = b""
+        compteur = 0
+        while len(resultat) < TARGET_BYTES:
+            bloc = hashlib.sha512(
+                seed + etiquette + compteur.to_bytes(4, "big")
+            ).digest()                      # 64 octets
+            resultat += bloc
+            compteur += 1
+        # Limiter à exactement TARGET_BYTES octets
+        resultat = resultat[:TARGET_BYTES]
+        # Forcer le bit de poids fort à 1 → garantir exactement TARGET_BITS bits
+        resultat = bytes([resultat[0] | 0x80]) + resultat[1:]
+        return int.from_bytes(resultat, "big")
+ 
+    nombre_1 = deriver(b"RSA_P")
+    nombre_2 = deriver(b"RSA_Q")
+ 
+    return nombre_1, nombre_2
