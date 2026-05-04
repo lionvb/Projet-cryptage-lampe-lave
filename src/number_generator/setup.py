@@ -29,24 +29,6 @@ def images_to_bytes(frames_dir: str) -> bytes:
     hash_final = hashs_frames[randint(0, len(hashs_frames)-1)]
     return hash_final
 
-def bytes_to_grands_entiers(raw_bytes: bytes) -> tuple[int, int]:
-    """
-    Convertit des bytes bruts (issus d'une image) en deux grands entiers
-    utilisables comme source d'aléa pour la génération de clés RSA.
-    """
-    # SHA-512 → 64 bytes bien distribués
-    hash_bytes = hashlib.sha512(raw_bytes).digest()
-
-    # Split en deux moitiés de 32 bytes
-    moitie_1 = hash_bytes[:32]
-    moitie_2 = hash_bytes[32:]
-
-    # Conversion bytes → entier (big-endian : octet de poids fort en premier)
-    entier_1 = int.from_bytes(moitie_1, byteorder='big')
-    entier_2 = int.from_bytes(moitie_2, byteorder='big')
-
-    return entier_1, entier_2
-
 
 """
 Diagramme pour visualiser la pipeline :
