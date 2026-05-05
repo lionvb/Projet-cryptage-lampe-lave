@@ -1,4 +1,4 @@
-# Cryptologie — Chiffrement RSA
+# Cryptologie
 
 ## Sommaire
 1. [Chiffrement symétrique vs asymétrique](#1-chiffrement-symétrique-vs-asymétrique)
@@ -6,6 +6,7 @@
 3. [Génération des clés](#3-génération-des-clés)
 4. [Chiffrement et déchiffrement](#4-chiffrement-et-déchiffrement)
 5. [Padding OAEP](#5-padding-oaep)
+6. [Le Chiffrement Hybride et Dérivation Déterministe](#6-le-chiffrement-hybride-et-dérivation-déterministe)
 
 ---
 
@@ -204,3 +205,30 @@ Ce masquage croisé garantit :
 - Le déchiffrement est l'opération strictement inverse
 
 L'**octet `0x00` en tête** est crucial : il garantit que l'entier `m` représenté par le bloc vérifie `m < n`, condition nécessaire au bon fonctionnement de RSA. Sans lui, `m ≥ n` environ une fois sur deux, ce qui corrompt silencieusement le déchiffrement.
+
+
+## 6. Le Chiffrement Hybride et Dérivation Déterministe
+
+### Le meilleur des deux mondes (RSA + AES)
+Comme vu précédemment, le chiffrement asymétrique (RSA) résout brillamment le problème de l'échange de clés. Cependant, il est lent par nature et conçu principalement pour chiffrer des éléments de petite taille. À l'inverse, le chiffrement symétrique (AES) utilise la même clé pour chiffrer et déchiffrer. Ce modèle est extrêmement rapide et parfaitement adapté aux flux importants de données (fichiers volumineux, bases de données, communications réseau).
+
+Pour obtenir un système optimal, l'industrie standardise aujourd'hui le **chiffrement hybride** (utilisé dans TLS, SSH, et les VPN modernes) :
+1. **Confidentialité des données :** L'algorithme AES prend en charge le chiffrement direct du contenu et des fichiers.
+2. **Sécurité de l'échange :** L'algorithme RSA est utilisé uniquement pour chiffrer et transmettre la clé secrète AES à l'interlocuteur. 
+
+Notre projet implémente la norme **AES-256-GCM**. Le mode GCM (Galois/Counter Mode) est la recommandation officielle de l'ANSSI pour les communications réseau. Il combine confidentialité et intégrité via un mécanisme AEAD (*Authenticated Encryption with Associated Data*), ce qui garantit non seulement que le message est secret, mais surtout qu'il n'a pas été altéré ou corrompu en transit.
+
+### Architecture du projet : La Dérivation depuis la "Seed"
+
+Dans notre architecture, l'intégralité du matériel cryptographique est générée de manière **déterministe** à partir d'une unique source d'entropie visuelle (notre "Seed").
+
+Le processus d'initialisation suit cette chaîne logique :
+1. **`setup.py` (Génération de la Seed) :** Ce script analyse un dossier d'images (comme une lampe à lave), hache chaque frame en SHA-512, et retourne un unique hash aléatoire. C'est la *Seed* fondamentale.
+2. **`key_generator.py` (Dérivation des clés) :** Ce script reçoit la *Seed* et dérive mathématiquement toutes les clés nécessaires grâce à un système d'étiquetage (labels).
+
+L'utilisation d'étiquettes permet d'utiliser la même *Seed* pour générer des éléments cryptographiques totalement distincts :
+- Le hachage de la `Seed + "RSA_P"` génère le grand nombre premier `p`.
+- Le hachage de la `Seed + "RSA_Q"` génère le grand nombre premier `q`.
+- Le hachage de la `Seed + "AES_KEY"` génère la clé symétrique de 32 octets (256 bits) dédiée à AES.
+
+Cette mécanique garantit que la clé AES et les clés RSA sont cryptographiquement indépendantes, tout en provenant de la même origine entropique. Une fois cette phase d'initialisation terminée, les modules `chiffrage.py` et `dechiffrage.py` prennent le relais pour appliquer le chiffrement hybride sur les communications.

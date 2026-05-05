@@ -1,7 +1,7 @@
 import sys
 import os
 
-from chiffrement_dechiffrement.rsa_cles   import generer_cles_rsa,seed_vers_grands_entiers
+from chiffrement_dechiffrement.key_generator   import generer_cles_rsa,seed_vers_grands_entiers
 from chiffrement_dechiffrement.cryptage   import chiffrer
 from chiffrement_dechiffrement.decryptage import dechiffrer
 from number_generator.setup import images_to_bytes
