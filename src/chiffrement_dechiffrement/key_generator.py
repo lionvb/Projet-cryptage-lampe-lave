@@ -151,5 +151,18 @@ def seed_vers_grands_entiers(seed: bytes) -> tuple:
  
     nombre_1 = deriver(b"RSA_P")
     nombre_2 = deriver(b"RSA_Q")
+    nombre_3 = deriver(b"AES_KEY")
  
-    return nombre_1, nombre_2
+    return nombre_1, nombre_2,nombre_3
+
+def extraire_cle_aes(nombre_3: int) -> bytes:
+    """
+    Convertit l'entier dérivé de 512 bits 'nombre_3' en une clé AES-256 valide de 32 octets.
+    """
+    # 1. Converti le grand entier de 512 bit en une séquence de 64 bytes
+    cle_brute = nombre_3.to_bytes(64, byteorder="big")
+    
+    # 2. Garde seulement les 32 premiers bits nécessaires pour l'AES-256
+    cle_aes = cle_brute[:32]
+    
+    return cle_aes

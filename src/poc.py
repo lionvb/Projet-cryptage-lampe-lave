@@ -6,10 +6,9 @@ from matplotlib import pyplot as plt
 from random import randint
 import hashlib
 
-from chiffrement_dechiffrement.key_generator   import generer_cles_rsa,seed_vers_grands_entiers
-from chiffrement_dechiffrement.cryptage   import chiffrer
-from chiffrement_dechiffrement.decryptage import dechiffrer
-from number_generator.setup               import images_to_bytes
+from chiffrement_dechiffrement.key_generator   import generer_cles_rsa,seed_vers_grands_entiers,extraire_cle_aes
+from chiffrement_dechiffrement.encrypt_decrypt   import chiffrer_RSA,dechiffrer_RSA,chiffrement_AES,dechiffrement_AES
+from serveur.number_generator.setup               import images_to_bytes
 
 FRAMES_DIR = os.path.join("docs", "Pictures")
 INPUT_FILE      = os.path.join("docs", "message.txt")
@@ -83,16 +82,17 @@ def demo_generation_entiers(frames_dir: str) -> tuple[int, int]:
 
     t0       = time.perf_counter()
     raw_bytes = images_to_bytes(frames_dir)
-    nb1, nb2 = seed_vers_grands_entiers(raw_bytes)
+    nb1, nb2, nb3 = seed_vers_grands_entiers(raw_bytes)
     duree    = time.perf_counter() - t0
 
     ok(f"Hash sélectionné       : 64 bytes (SHA-512 d'une frame tirée au sort)")
     ok(f"Re-hash SHA-512        : 64 bytes → coupé en 2 × 32 bytes")
     afficher_extrait("Entier 1", nb1)
     afficher_extrait("Entier 2", nb2)
+    afficher_extrait("Entier 2", nb3)
     ok(f"Durée                  : {duree*1000:.1f} ms")
 
-    return nb1, nb2
+    return nb1, nb2, nb3
 
 # ─── ÉTAPE 2 — Génération des clés RSA ──────────────────────────────────────
 
@@ -102,15 +102,17 @@ def demo_generation_cles(nb1: int, nb2: int) -> tuple[dict, dict]:
     t0                = time.perf_counter()
     cle_pub, cle_priv = generer_cles_rsa(nb1, nb2)
     duree             = time.perf_counter() - t0
+    cle_aes=extraire_cle_aes(nb3)
 
     n_bits = cle_pub["n"].bit_length()
     ok(f"Module RSA n           : {n_bits} bits")
     ok(f"Exposant public  e     : {cle_pub['e']}  (2¹⁶ + 1, standard)")
     afficher_extrait("Module n (extrait)", cle_pub["n"])
     afficher_extrait("Exposant privé d ", cle_priv["d"])
+    afficher_extrait("Clé AES", cle_aes.hex())
     ok(f"Durée                  : {duree*1000:.1f} ms")
 
-    return cle_pub, cle_priv
+    return cle_pub, cle_priv, cle_aes
 
 # ─── ÉTAPE 3 — Chiffrement ──────────────────────────────────────────────────
 
@@ -122,7 +124,7 @@ def demo_chiffrement(input_file: str, cle_pub: dict) -> bytes:
     print(f"      Taille             : {len(texte_original.encode('utf-8'))} bytes\n")
 
     t0              = time.perf_counter()
-    message_chiffre = chiffrer(texte_original, cle_pub)
+    message_chiffre = chiffrer_RSA(texte_original, cle_pub)
     duree           = time.perf_counter() - t0
 
     ecrire_fichier(ENCRYPTED_FILE, message_chiffre.hex())
@@ -140,7 +142,7 @@ def demo_dechiffrement(message_chiffre: bytes, cle_priv: dict, input_file: str):
 
     t0                = time.perf_counter()
     message_chiffre_bytes = bytes.fromhex(lire_fichier(ENCRYPTED_FILE))
-    message_dechiffre = dechiffrer(message_chiffre_bytes, cle_priv)
+    message_dechiffre = dechiffrer_RSA(message_chiffre_bytes, cle_priv)
     duree             = time.perf_counter() - t0
 
     ecrire_fichier(DECRYPTED_FILE, message_dechiffre)
@@ -164,7 +166,7 @@ if __name__ == "__main__":
     print(f"  Fichier source : {INPUT_FILE}")
 
     afficher_pipeline_images(FRAMES_DIR)
-    nb1, nb2          = demo_generation_entiers(FRAMES_DIR)
-    cle_pub, cle_priv = demo_generation_cles(nb1, nb2)
+    nb1, nb2, nb3     = demo_generation_entiers(FRAMES_DIR)
+    cle_pub, cle_priv, cle_aes = demo_generation_cles(nb1, nb2)
     message_chiffre   = demo_chiffrement(INPUT_FILE, cle_pub)
     demo_dechiffrement(message_chiffre, cle_priv, INPUT_FILE)

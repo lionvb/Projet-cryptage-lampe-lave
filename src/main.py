@@ -1,10 +1,9 @@
 import sys
 import os
 
-from chiffrement_dechiffrement.key_generator   import generer_cles_rsa,seed_vers_grands_entiers
-from chiffrement_dechiffrement.cryptage   import chiffrer
-from chiffrement_dechiffrement.decryptage import dechiffrer
-from number_generator.setup import images_to_bytes
+from chiffrement_dechiffrement.key_generator   import generer_cles_rsa,seed_vers_grands_entiers,extraire_cle_aes
+from chiffrement_dechiffrement.encrypt_decrypt   import chiffrer_RSA,dechiffrer_RSA,chiffrement_AES,dechiffrement_AES
+from serveur.number_generator.setup import images_to_bytes
 
 PHOTO_PATH = os.path.join("docs", "Pictures")
 INPUT_FILE  = os.path.join("docs", "message.txt")
@@ -24,21 +23,22 @@ def ecrire_fichier(path: str, contenu: str):
 if __name__ == "__main__":
     # Génération des clés RSA
     raw_bytes = images_to_bytes(PHOTO_PATH)
-    nombre_1, nombre_2 = seed_vers_grands_entiers(raw_bytes)
+    nombre_1, nombre_2, nombre_3 = seed_vers_grands_entiers(raw_bytes)
     cle_pub, cle_priv = generer_cles_rsa(nombre_1, nombre_2)
+    cle_aes=extraire_cle_aes(nombre_3)
 
     # 1. Lecture du fichier source
     texte_original = lire_fichier(INPUT_FILE)
     print(f"Message original :\n{texte_original}\n")
 
     # 2. Chiffrement → écriture
-    message_chiffre = chiffrer(texte_original, cle_pub)
+    message_chiffre = chiffrer_RSA(texte_original, cle_pub)
     ecrire_fichier(ENCRYPTED_FILE, message_chiffre.hex())
     print(f"Fichier chiffré écrit : {ENCRYPTED_FILE}\n")
 
     # 3. Déchiffrement → écriture
     message_chiffre_bytes = bytes.fromhex(lire_fichier(ENCRYPTED_FILE))
-    message_dechiffre = dechiffrer(message_chiffre_bytes, cle_priv)
+    message_dechiffre = dechiffrer_RSA(message_chiffre_bytes, cle_priv)
     ecrire_fichier(DECRYPTED_FILE, message_dechiffre)
     print(f"Fichier déchiffré écrit : {DECRYPTED_FILE}\n")
 
