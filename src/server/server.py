@@ -60,6 +60,12 @@ class ReponseCleePublique(BaseModel):
     username: str
     status: str
 
+class CleePublique(BaseModel):
+    """Réponse de GET /publickey/{username} : clé publique RSA d'un utilisateur."""
+    username: str
+    n: int
+    e: int
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -126,3 +132,25 @@ def publier_cle_publique(demande: DemandeCleePublique) -> ReponseCleePublique:
 
     cles_publiques[demande.username] = {"n": demande.n, "e": demande.e}
     return ReponseCleePublique(username=demande.username, status="key_published")
+
+@app.get(
+    "/publickey/{username}",
+    response_model=CleePublique,
+)
+def recuperer_cle_publique(username: str) -> CleePublique:
+    """
+    Récupère la clé publique RSA d'un utilisateur.
+
+    - 200 OK : la clé est renvoyée.
+    - 404 Not Found : aucune clé publiée pour ce username
+      (soit il n'existe pas, soit il ne s'est pas encore enregistré
+      côté /publickey).
+    """
+    if username not in cles_publiques:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Aucune clé publique trouvée pour '{username}'.",
+        )
+
+    cle = cles_publiques[username]
+    return CleePublique(username=username, n=cle["n"], e=cle["e"])
