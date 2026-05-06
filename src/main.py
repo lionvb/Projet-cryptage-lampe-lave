@@ -1,9 +1,9 @@
 import sys
 import os
 
-from chiffrement_dechiffrement.key_generator   import generer_cles_rsa,seed_vers_grands_entiers,extraire_cle_aes
-from chiffrement_dechiffrement.encrypt_decrypt   import chiffrer_RSA,dechiffrer_RSA,chiffrement_AES,dechiffrement_AES
-from serveur.number_generator.setup import images_to_bytes
+from encrypt_decrypt.key_generator   import generer_cles_rsa,seed_vers_grands_entiers,extraire_cle_aes
+from encrypt_decrypt.encrypt_decrypt   import chiffrer_RSA,dechiffrer_RSA,chiffrement_AES,dechiffrement_AES
+from server.number_generator.setup import images_to_bytes
 
 PHOTO_PATH = os.path.join("docs", "Pictures")
 INPUT_FILE  = os.path.join("docs", "message.txt")

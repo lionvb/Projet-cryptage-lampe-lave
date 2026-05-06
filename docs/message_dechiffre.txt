@@ -1,1 +1,0 @@
-Message qui servira d'input pour le chiffrement de texte.
