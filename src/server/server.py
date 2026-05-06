@@ -13,6 +13,8 @@ import os
 from fastapi import FastAPI, HTTPException, WebSocket, status
 from pydantic import BaseModel, Field
 
+from src.server.number_generator.setup import images_to_bytes
+
 app = FastAPI(title="lava_entropy — serveur V3")
 
 # Ensemble des usernames enregistrés via POST /register.
@@ -79,13 +81,12 @@ def inscrire(demande: DemandeInscription) -> ReponseInscription:
     utilisateurs.add(demande.username)
     return ReponseInscription(username=demande.username, status="registered")
 
-
+PHOTO_PATH = os.path.join(os.path.dirname(__file__), "Pictures")
 @app.get("/seed", response_model=ReponseSeed)
-
 def obtenir_seed() -> ReponseSeed:
     """
     Renvoie une seed d'entropie de 64 octets (512 bits) en hexadécimal.
-    AFAIRE : remplacer os.urandom par la génération d'entropie physique
     """
-    seed = os.urandom(64).hex()
+    # Génération des clés RSA
+    seed = images_to_bytes(PHOTO_PATH).hex()
     return ReponseSeed(seed=seed)
