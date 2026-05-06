@@ -10,7 +10,7 @@ Lancement depuis la racine du projet :
 
 import os
 
-from fastapi import FastAPI, HTTPException, WebSocket, status
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, status
 from pydantic import BaseModel, Field
 
 from src.server.number_generator.setup import images_to_bytes
@@ -154,3 +154,48 @@ def recuperer_cle_publique(username: str) -> CleePublique:
 
     cle = cles_publiques[username]
     return CleePublique(username=username, n=cle["n"], e=cle["e"])
+
+@app.websocket("/chat")
+async def chat(websocket: WebSocket):
+    """
+    WebSocket du chat chiffré (étape 4a — connexion uniquement).
+
+    Le client doit fournir son username via la query string :
+        ws://localhost:8000/chat?user=alice
+
+    Comportements :
+    - 1008 username_manquant : pas de paramètre `user` dans l'URL
+    - 1008 username_inconnu  : le username n'a pas fait POST /register
+    - 1008 deja_connecte     : le username a déjà une WS active
+    - sinon, la connexion est acceptée et reste ouverte jusqu'à ce que
+      le client se déconnecte ; les messages reçus sont ignorés pour l'instant
+      (le routage arrive à l'étape 4b).
+    """
+    username = websocket.query_params.get("user")
+
+    # On accepte la WS d'abord, puis on valide. Cela permet de renvoyer
+    # un close code et une raison interprétables côté client.
+    await websocket.accept()
+
+    if not username:
+        await websocket.close(code=1008, reason="username_manquant")
+        return
+    if username not in utilisateurs:
+        await websocket.close(code=1008, reason="username_inconnu")
+        return
+    if username in connexions:
+        await websocket.close(code=1008, reason="deja_connecte")
+        return
+
+    connexions[username] = websocket
+    try:
+        while True:
+            # On lit pour maintenir la boucle vivante et détecter
+            # la déconnexion. Le contenu sera traité à l'étape 4b.
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        # Retrait systématique du registre, quelle que soit la raison
+        # de la sortie de la boucle (déconnexion propre ou exception).
+        connexions.pop(username, None)
