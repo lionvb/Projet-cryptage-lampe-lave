@@ -7,13 +7,20 @@ Permet uniquement de valider que la stack ASGI tourne.
 Lancement depuis la racine du projet :
     uvicorn src.server.server:app --reload
 """
-
+import json
 import os
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, status
 from pydantic import BaseModel, Field
 
 from src.server.number_generator.setup import images_to_bytes
+
+async def envoyer_erreur(ws: WebSocket, raison: str, to: str | None = None) -> None:
+    """Envoie un message d'erreur structuré à un client WS."""
+    payload = {"type": "error", "reason": raison}
+    if to is not None:
+        payload["to"] = to
+    await ws.send_text(json.dumps(payload))
 
 app = FastAPI(title="lava_entropy — serveur V3")
 
@@ -158,23 +165,23 @@ def recuperer_cle_publique(username: str) -> CleePublique:
 @app.websocket("/chat")
 async def chat(websocket: WebSocket):
     """
-    WebSocket du chat chiffré (étape 4a — connexion uniquement).
+    WebSocket du chat chiffré (étape 4b — connexion + routage).
 
     Le client doit fournir son username via la query string :
         ws://localhost:8000/chat?user=alice
 
-    Comportements :
-    - 1008 username_manquant : pas de paramètre `user` dans l'URL
-    - 1008 username_inconnu  : le username n'a pas fait POST /register
-    - 1008 deja_connecte     : le username a déjà une WS active
-    - sinon, la connexion est acceptée et reste ouverte jusqu'à ce que
-      le client se déconnecte ; les messages reçus sont ignorés pour l'instant
-      (le routage arrive à l'étape 4b).
+    Format des messages JSON acceptés (client -> serveur) :
+    - {"type": "aes_key", "to": "<username>", "payload": "<b64>"}
+        Handshake initial : clé AES de session chiffrée RSA pour le destinataire.
+    - {"type": "message", "to": "<username>", "nonce": "<b64>", "ciphertext": "<b64>", "tag": "<b64>"}
+        Message chiffré AES-GCM.
+
+    Le serveur enrichit le message d'un champ `from` (et retire `to`)
+    avant de le transmettre au destinataire. Si le destinataire est offline
+    ou si le message est mal formé, un message d'erreur est renvoyé à
+    l'expéditeur sans rompre la connexion.
     """
     username = websocket.query_params.get("user")
-
-    # On accepte la WS d'abord, puis on valide. Cela permet de renvoyer
-    # un close code et une raison interprétables côté client.
     await websocket.accept()
 
     if not username:
@@ -190,12 +197,44 @@ async def chat(websocket: WebSocket):
     connexions[username] = websocket
     try:
         while True:
-            # On lit pour maintenir la boucle vivante et détecter
-            # la déconnexion. Le contenu sera traité à l'étape 4b.
-            await websocket.receive_text()
+            raw = await websocket.receive_text()
+
+            # Parsing JSON
+            try:
+                message = json.loads(raw)
+            except json.JSONDecodeError:
+                await envoyer_erreur(websocket, "json_invalide")
+                continue
+            if not isinstance(message, dict):
+                await envoyer_erreur(websocket, "format_invalide")
+                continue
+
+            # Validation : type connu
+            type_msg = message.get("type")
+            if type_msg not in ("aes_key", "message"):
+                await envoyer_erreur(websocket, "type_inconnu")
+                continue
+
+            # Validation : destinataire renseigné
+            destinataire = message.get("to")
+            if not isinstance(destinataire, str) or not destinataire:
+                await envoyer_erreur(websocket, "to_manquant")
+                continue
+
+            # Vérification : destinataire connecté ?
+            ws_dest = connexions.get(destinataire)
+            if ws_dest is None:
+                await envoyer_erreur(websocket, "recipient_offline", to=destinataire)
+                continue
+
+            # Routage : on remplace `to` par `from` (le destinataire sait
+            # déjà qu'il est `to`, ce qui l'intéresse c'est l'expéditeur).
+            message_relaye = {k: v for k, v in message.items() if k != "to"}
+            message_relaye["from"] = username
+
+            await ws_dest.send_text(json.dumps(message_relaye))
+
     except WebSocketDisconnect:
         pass
     finally:
-        # Retrait systématique du registre, quelle que soit la raison
-        # de la sortie de la boucle (déconnexion propre ou exception).
         connexions.pop(username, None)
