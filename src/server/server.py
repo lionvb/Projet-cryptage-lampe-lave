@@ -5,8 +5,10 @@ Serveur FastAPI — V3 du projet lava_entropy.
 Permet uniquement de valider que la stack ASGI tourne.
 
 Lancement depuis la racine du projet :
-    uvicorn src.serveur.serveur:app --reload
+    uvicorn src.server.server:app --reload
 """
+
+import os
 
 from fastapi import FastAPI, HTTPException, WebSocket, status
 from pydantic import BaseModel, Field
@@ -24,10 +26,6 @@ connexions: dict[str, WebSocket] = {}
 
 
 # ---------------------------------------------------------------------------
-# Endpoints
-# ---------------------------------------------------------------------------
-
-# ---------------------------------------------------------------------------
 # Schémas Pydantic
 # ---------------------------------------------------------------------------
 # Pydantic valide automatiquement les corps de requête/réponse et alimente
@@ -42,6 +40,11 @@ class ReponseInscription(BaseModel):
     """Réponse de POST /register."""
     username: str
     status: str
+
+
+class ReponseSeed(BaseModel):
+    """Réponse de GET /seed : seed d'entropie en hexadécimal."""
+    seed: str
 
 
 # ---------------------------------------------------------------------------
@@ -75,3 +78,14 @@ def inscrire(demande: DemandeInscription) -> ReponseInscription:
 
     utilisateurs.add(demande.username)
     return ReponseInscription(username=demande.username, status="registered")
+
+
+@app.get("/seed", response_model=ReponseSeed)
+
+def obtenir_seed() -> ReponseSeed:
+    """
+    Renvoie une seed d'entropie de 64 octets (512 bits) en hexadécimal.
+    AFAIRE : remplacer os.urandom par la génération d'entropie physique
+    """
+    seed = os.urandom(64).hex()
+    return ReponseSeed(seed=seed)
