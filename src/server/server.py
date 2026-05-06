@@ -48,6 +48,17 @@ class ReponseSeed(BaseModel):
     """Réponse de GET /seed : seed d'entropie en hexadécimal."""
     seed: str
 
+class DemandeCleePublique(BaseModel):
+    """Corps de requête de POST /publickey."""
+    username: str = Field(min_length=1, max_length=32)
+    n: int = Field(gt=0)
+    e: int = Field(gt=0)
+
+
+class ReponseCleePublique(BaseModel):
+    """Réponse de POST /publickey."""
+    username: str
+    status: str
 
 # ---------------------------------------------------------------------------
 # Endpoints
@@ -90,3 +101,28 @@ def obtenir_seed() -> ReponseSeed:
     # Génération des clés RSA
     seed = images_to_bytes(PHOTO_PATH).hex()
     return ReponseSeed(seed=seed)
+
+@app.post(
+    "/publickey",
+    response_model=ReponseCleePublique,
+    status_code=status.HTTP_201_CREATED,
+)
+def publier_cle_publique(demande: DemandeCleePublique) -> ReponseCleePublique:
+    """
+    Publie la clé publique RSA d'un utilisateur déjà enregistré.
+
+    - 201 Created : clé publiée (écrase la précédente si elle existait,
+      pour permettre la rotation à chaque nouvelle session).
+    - 404 Not Found : username inconnu (l'utilisateur doit d'abord
+      passer par POST /register).
+    - 422 Unprocessable Entity : validation Pydantic échouée
+      (auto par FastAPI, par exemple si n ou e sont absents ou ≤ 0).
+    """
+    if demande.username not in utilisateurs:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Username '{demande.username}' non enregistré.",
+        )
+
+    cles_publiques[demande.username] = {"n": demande.n, "e": demande.e}
+    return ReponseCleePublique(username=demande.username, status="key_published")
