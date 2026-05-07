@@ -24,7 +24,10 @@ def _mgf(graine: bytes, longueur: int) -> bytes:
 def chiffrer_RSA(message: str, cle_publique: dict) -> bytes:
     n, e  = cle_publique["n"], cle_publique["e"]
     k     = (n.bit_length() + 7) // 8
-    msg_b = message.encode("utf-8")
+    if type(message) == bytes:
+        msg_b = message
+    else:
+        msg_b = message.encode("utf-8")
     capacite_max = k - 37
 
     if capacite_max <= 0:
@@ -92,8 +95,8 @@ def dechiffrer_RSA(message_chiffre: bytes, cle_privee: dict) -> str:
     try:
         return b"".join(blocs_dechiffres).decode("utf-8")
     except UnicodeDecodeError:
-        raise ValueError("Impossible de décoder en UTF-8 : données corrompues ou mauvaise clé privée.")
-    
+        return b"".join(blocs_dechiffres)  
+  
 def chiffrement_AES(cle_aes: bytes, message_clair: str) -> tuple:
     """
     Chiffre un message en clair en utilisant AES-256-GCM.
