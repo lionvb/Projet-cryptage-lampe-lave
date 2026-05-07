@@ -41,7 +41,7 @@ def create_rsa_keys(username: str) -> tuple:
     nb1,nb2,nb3 = seed_vers_grands_entiers(bytes.fromhex(seed_hex))
     pub_key, priv_key = generer_cles_rsa(nb1, nb2)
     publier_clés(username, pub_key)
-    return priv_key, pub_key
+    return pub_key, priv_key
 
 def create_aes_key() -> bytes:
     seed_hex=seed()
@@ -53,6 +53,7 @@ if __name__ == "__main__":
     user1=set_username()
     enregistrer(user1)
     rsa = create_rsa_keys(user1)
+    pub_rsa, priv_rsa = create_rsa_keys(user1)
     print("rsa keys : \n", rsa['n'], "\n", rsa['d'])
     aes = create_aes_key()
     print("aes key : \n", aes)
