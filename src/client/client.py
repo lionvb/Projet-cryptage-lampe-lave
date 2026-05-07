@@ -36,7 +36,7 @@ def publier_clés(username,cle_pub):
         if r.status_code !=201:
             r.raise_for_status()
 
-def create_rsa_keys(username: str) -> bytes:
+def create_rsa_keys(username: str) -> dict:
     seed_hex=seed()
     nb1,nb2,nb3 = seed_vers_grands_entiers(bytes.fromhex(seed_hex))
     pub_key, priv_key = generer_cles_rsa(nb1, nb2)
