@@ -6,6 +6,27 @@ Tests manuels de l'étape 4b — routage des messages sur WS /chat.
 
 Prérequis :
     pip install websockets httpx
+
+
+===========================================Comment lire ce script========================================================
+
+>> async with ... as alice, ... as bob: 
+ouvre simultanément deux WebSockets dans le même contexte. 
+Les deux connexions vivent en parallèle, ce qui est nécessaire pour tester un échange routé.
+
+>> lire_message(ws, timeout=0.5) 
+attend jusqu'à 0,5 s un message sur la WS. 
+Si rien n'arrive, ça renvoie None plutôt que de bloquer indéfiniment 
+utile pour distinguer "le serveur n'a rien répondu" d'un message malformé.
+
+>> verifier(...) 
+compare le message reçu à l'attendu via == (les dict Python comparent par contenu, pas par ordre des clés). 
+Ça affiche [OK] ou [KO] avec le détail des deux côtés. Pas de assert qui interromprait le script 
+on veut voir tous les scénarios même si l'un d'eux casse.
+
+Le scénario 7 (résilience) est la vraie valeur ajoutée par rapport à un test naïf : 
+il vérifie que les erreurs des scénarios 3 à 6 n'ont pas tué la connexion d'Alice. 
+C'est exactement la propriété qu'on a inscrite dans le code serveur en utilisant continue plutôt que break dans la boucle.
 """
 
 import asyncio
