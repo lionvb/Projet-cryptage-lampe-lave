@@ -4,7 +4,7 @@ Serveur FastAPI — V3 du projet lava_entropy.
 Étape 1 : squelette minimal.
 Permet uniquement de valider que la stack ASGI tourne.
 
-Lancement depuis la racine du projet :
+Lancement depuis la racine du projet : >> uvicorn src.server.server:app --reload
 """
 import json
 import os
