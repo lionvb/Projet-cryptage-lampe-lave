@@ -1,10 +1,20 @@
 import asyncio
 import json
 
-from src.encrypt_decrypt.key_generator import generer_cles_rsa,extraire_cle_aes,seed_vers_grands_entiers
-from src.encrypt_decrypt.encrypt_decrypt import *
 import httpx
 import websockets
+
+from src.encrypt_decrypt.encrypt_decrypt import (
+    chiffrer_RSA,
+    dechiffrer_RSA,
+    chiffrement_AES,
+    dechiffrement_AES,
+)
+from src.encrypt_decrypt.key_generator import (
+    extraire_cle_aes,
+    generer_cles_rsa,
+    seed_vers_grands_entiers,
+)
 
 
 BASE_HTTP = "http://localhost:8000"
@@ -34,7 +44,7 @@ def publier_clés(username,cle_pub):
         if r.status_code !=201:
             r.raise_for_status()
             
-def récuperer_clés(destinataire:str) -> str:
+def récuperer_clés(destinataire:str) -> tuple[int, int]:
     """Récupère la seed via GET /seed."""
     reponse=httpx.get(f"{BASE_HTTP}/publickey/{destinataire}",timeout=5.0)
     reponse.raise_for_status()
@@ -93,5 +103,8 @@ if __name__ == "__main__":
     
     #========== Récéption de la clé aes chiffrée de user2 par user1 ==========
     aes_key_decrypted=dechiffrer_RSA(aes_key_crypted,priv_rsa1)
-    print(f"\nTest du déchiffrement de la clé AES reçu par {user1} : \nClé envoyée : {aes_key_decrypted[:10]}...\nClé reçue :   {aes[:10]}...")
-    
+    print(f"\nTest du déchiffrement de la clé AES reçu par {user1} :")  
+    if aes_key_crypted == aes :
+        print("OK")
+    else :
+        print("KO")
