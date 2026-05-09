@@ -145,7 +145,7 @@ async def main_client() -> None:
     if est_initiateur:
         destinataire = input("Username du destinataire : ").strip()
         cle_aes = generer_cle_aes_session()
-        print(f"\nClé AES de session générée (32 octets).")
+        print(f"\nClé AES de session générée. Aperçu : {cle_aes[:8].hex()}... (32 octets)")
 
     # Connexion WS et handshake
     url = f"{BASE_WS}/chat?user={username}"
@@ -159,9 +159,30 @@ async def main_client() -> None:
 
             print("\nEn écoute. Ctrl+C pour quitter.\n")
             async for raw in ws:
-                # Pour l'instant on log le brut. Le traitement du
-                # message `aes_key` côté récepteur arrive à l'étape suivante.
-                print(f"[reçu] {raw}")
+                try:
+                    message = json.loads(raw)
+                except json.JSONDecodeError:
+                    print(f"[reçu non-JSON] {raw}")
+                    continue
+
+                type_msg = message.get("type")
+
+                if type_msg == "aes_key":
+                    if est_initiateur:
+                        # On ignore : on a déjà notre clé AES locale (cf. design QC).
+                        print(f"[ignoré] aes_key reçue alors que je suis initiateur")
+                        continue
+                    cle_aes = traiter_aes_key(message, priv)
+                    print(
+                        f"Clé AES reçue de {message.get('from')} et déchiffrée."
+                        f"\nAperçu : {cle_aes[:8].hex()}... ({len(cle_aes)} octets)"
+                    )
+
+                elif type_msg == "error":
+                    print(f"[erreur serveur] reason={message.get('reason')} to={message.get('to')}")
+
+                else:
+                    print(f"[reçu non géré] {message}")
     except websockets.exceptions.ConnectionClosed as e:
         print(f"\nFermée — code={e.code} reason={e.reason!r}")
 
