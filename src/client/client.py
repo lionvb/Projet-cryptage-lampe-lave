@@ -165,6 +165,20 @@ async def main_client() -> None:
     except websockets.exceptions.ConnectionClosed as e:
         print(f"\nFermée — code={e.code} reason={e.reason!r}")
 
+def traiter_aes_key(message: dict, cle_privee: dict) -> bytes:
+    """
+    Côté récepteur : décode la charge utile base64 d'un message `aes_key`
+    et la déchiffre avec la clé privée RSA pour récupérer la clé AES en clair.
+    """
+    aes_chiffree = base64.b64decode(message["payload"])
+    cle_aes = dechiffrer_RSA(aes_chiffree, cle_privee)
+    # `dechiffrer_RSA` renvoie un str si les octets déchiffrés forment un
+    # UTF-8 valide, sinon des bytes. Pour 32 octets aléatoires c'est rare
+    # mais possible — on normalise systématiquement en bytes.
+    if isinstance(cle_aes, str):
+        cle_aes = cle_aes.encode("utf-8")
+    return cle_aes
+
 if __name__ == "__main__":
 
     try:
