@@ -136,18 +136,6 @@ async def main_client() -> None:
     pub, priv = initialiser_session(username)
     print(f"\nSession initialisée pour {username}.")
 
-    await ouvrir_websocket(username)
-
-async def main_client() -> None:
-    """Orchestration interactive du client."""
-    username = input("\nUsername : ").strip()
-    if not username:
-        print("Username vide, abandon.")
-        return
-
-    pub, priv = initialiser_session(username)
-    print(f"\nSession initialisée pour {username}.")
-
     # Choix du rôle
     reponse = input("\nÊtes-vous l'initiateur de la session ? (o/n) : ").strip().lower()
     est_initiateur = reponse.startswith("o")
@@ -176,3 +164,10 @@ async def main_client() -> None:
                 print(f"[reçu] {raw}")
     except websockets.exceptions.ConnectionClosed as e:
         print(f"\nFermée — code={e.code} reason={e.reason!r}")
+
+if __name__ == "__main__":
+
+    try:
+        asyncio.run(main_client())
+    except KeyboardInterrupt:
+        print("\nFermeture demandée.")
