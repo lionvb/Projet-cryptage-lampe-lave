@@ -89,19 +89,39 @@ def generer_cle_aes_session() -> bytes:
     _, _, nb3 = seed_vers_grands_entiers(seed_bytes)
     return extraire_cle_aes(nb3)
 
+async def ouvrir_websocket(username: str) -> None:
+    """
+    Ouvre la WebSocket de chat et la maintient ouverte jusqu'à fermeture
+    (côté serveur via close-frame, ou côté utilisateur via Ctrl+C).
+
+    Sous-étape 2 : on se contente de la connexion. Aucun message n'est
+    envoyé ; les messages reçus sont loggés mais pas traités.
+    """
+    url = f"{BASE_WS}/chat?user={username}"
+    print(f"\nConnexion à {url} ...")
+    async with websockets.connect(url) as ws:
+        print(f"Connecté en tant que {username}. Ctrl+C pour quitter.")
+        async for message in ws:
+            print(f"[reçu] {message}")
+    # Une fois le `async with` sorti, la WS est fermée des deux côtés.
+    print(f"Connexion fermée — code={ws.close_code} reason={ws.close_reason!r}")
+
+
+async def main_client() -> None:
+    """Orchestration interactive du client."""
+    username = input("\nUsername : ").strip()
+    if not username:
+        print("Username vide, abandon.")
+        return
+
+    pub, priv = initialiser_session(username)
+    print(f"\nSession initialisée pour {username}.")
+
+    await ouvrir_websocket(username)
+
 if __name__ == "__main__":
     
-    user1 = input("\nUsername user1 : ")
-    pub1, priv1 = initialiser_session(user1)
-    print(f"\nuser1 ({user1}) initialisé. n: {str(pub1['n'])[:10]}...")
-
-    user2 = input("\nUsername user2 : ")
-    pub2, priv2 = initialiser_session(user2)
-    print(f"\nuser2 ({user2}) initialisé. n: {str(pub2['n'])[:10]}...")
-
-    # Simulation du handshake AES (user2 = initiateur)
-    pub_destinataire = recuperer_cle(user1)
-    cle_aes = generer_cle_aes_session()
-    aes_chiffree = chiffrer_RSA(cle_aes, pub_destinataire)
-    aes_recue = dechiffrer_RSA(aes_chiffree, priv1)
-    print(f"\nHandshake AES : {'OK' if aes_recue == cle_aes else 'KO'}")
+    try:
+        asyncio.run(main_client())
+    except KeyboardInterrupt:
+        print("\nFermeture demandée.")
