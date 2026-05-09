@@ -1,5 +1,6 @@
 import asyncio
 import json
+import base64
 
 import httpx
 import websockets
@@ -106,6 +107,24 @@ async def ouvrir_websocket(username: str) -> None:
     # Une fois le `async with` sorti, la WS est fermée des deux côtés.
     print(f"Connexion fermée — code={ws.close_code} reason={ws.close_reason!r}")
 
+async def envoyer_cle_aes(ws, destinataire: str, cle_aes: bytes) -> None:
+    """
+    Côté initiateur : récupère la clé publique RSA du destinataire,
+    chiffre la clé AES de session avec, encode le résultat en base64,
+    et envoie le tout sur la WS via un message :
+        {"type": "aes_key", "to": <destinataire>, "payload": <base64>}
+    """
+    pub_dest = recuperer_cle(destinataire)
+    aes_chiffree = chiffrer_RSA(cle_aes, pub_dest)
+    payload_b64 = base64.b64encode(aes_chiffree).decode("ascii")
+
+    message = {
+        "type": "aes_key",
+        "to": destinataire,
+        "payload": payload_b64,
+    }
+    await ws.send(json.dumps(message))
+    print(f"Clé AES envoyée (chiffrée RSA) à {destinataire}.")
 
 async def main_client() -> None:
     """Orchestration interactive du client."""
@@ -120,7 +139,7 @@ async def main_client() -> None:
     await ouvrir_websocket(username)
 
 if __name__ == "__main__":
-    
+
     try:
         asyncio.run(main_client())
     except KeyboardInterrupt:
