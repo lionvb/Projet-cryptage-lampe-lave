@@ -138,9 +138,41 @@ async def main_client() -> None:
 
     await ouvrir_websocket(username)
 
-if __name__ == "__main__":
+async def main_client() -> None:
+    """Orchestration interactive du client."""
+    username = input("\nUsername : ").strip()
+    if not username:
+        print("Username vide, abandon.")
+        return
 
+    pub, priv = initialiser_session(username)
+    print(f"\nSession initialisée pour {username}.")
+
+    # Choix du rôle
+    reponse = input("\nÊtes-vous l'initiateur de la session ? (o/n) : ").strip().lower()
+    est_initiateur = reponse.startswith("o")
+
+    destinataire = None
+    cle_aes = None
+    if est_initiateur:
+        destinataire = input("Username du destinataire : ").strip()
+        cle_aes = generer_cle_aes_session()
+        print(f"\nClé AES de session générée (32 octets).")
+
+    # Connexion WS et handshake
+    url = f"{BASE_WS}/chat?user={username}"
+    print(f"\nConnexion à {url} ...")
     try:
-        asyncio.run(main_client())
-    except KeyboardInterrupt:
-        print("\nFermeture demandée.")
+        async with websockets.connect(url) as ws:
+            print(f"Connecté en tant que {username}.")
+
+            if est_initiateur:
+                await envoyer_cle_aes(ws, destinataire, cle_aes)
+
+            print("\nEn écoute. Ctrl+C pour quitter.\n")
+            async for raw in ws:
+                # Pour l'instant on log le brut. Le traitement du
+                # message `aes_key` côté récepteur arrive à l'étape suivante.
+                print(f"[reçu] {raw}")
+    except websockets.exceptions.ConnectionClosed as e:
+        print(f"\nFermée — code={e.code} reason={e.reason!r}")
