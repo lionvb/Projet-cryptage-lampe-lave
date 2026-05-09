@@ -60,18 +60,34 @@ def recuperer_cle(destinataire: str) -> dict:
     data = r.json()
     return {"n": data["n"], "e": data["e"]}
 
-def create_rsa_keys(username: str) -> tuple:
-    seed_hex=seed()
-    nb1,nb2,nb3 = seed_vers_grands_entiers(bytes.fromhex(seed_hex))
-    pub_key, priv_key = generer_cles_rsa(nb1, nb2)
-    publier_clés(username, pub_key)
-    return pub_key, priv_key
+def initialiser_session(username: str) -> tuple[dict, dict]:
+    """
+    Phase d'initialisation locale commune à tous les clients :
+    inscription, obtention d'une seed, dérivation de la paire RSA,
+    publication de la clé publique sur le serveur.
 
-def create_aes_key() -> bytes:
-    seed_hex=seed()
-    nb3 = seed_vers_grands_entiers(bytes.fromhex(seed_hex))[2]
-    aes_key = extraire_cle_aes(nb3)
-    return aes_key
+    Retourne (cle_publique, cle_privee), chacune au format
+    {"n": int, "e": int} ou {"n": int, "d": int}.
+    """
+    enregistrer(username)
+    seed_bytes = bytes.fromhex(obtenir_seed())
+    nb1, nb2, _ = seed_vers_grands_entiers(seed_bytes)
+    cle_publique, cle_privee = generer_cles_rsa(nb1, nb2)
+    publier_cle(username, cle_publique)
+    return cle_publique, cle_privee
+
+
+def generer_cle_aes_session() -> bytes:
+    """
+    Génère une clé AES-256 de session, dérivée d'une seed serveur.
+
+    À n'appeler que côté initiateur de la WebSocket. Le récepteur ne
+    génère pas de clé locale : il récupère celle de l'initiateur via
+    le message aes_key au début de la session.
+    """
+    seed_bytes = bytes.fromhex(obtenir_seed())
+    _, _, nb3 = seed_vers_grands_entiers(seed_bytes)
+    return extraire_cle_aes(nb3)
 
 if __name__ == "__main__":
     #========== Création user1 ==========
