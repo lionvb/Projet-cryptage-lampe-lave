@@ -26,29 +26,39 @@ def set_username():
     return username
 
 def enregistrer(username: str) -> None:
-    """Inscrit un username via POST /register, idempotent."""
+    """Inscrit un username via POST /register. Idempotent (409 toléré)."""
     with httpx.Client() as client:
         r = client.post(f"{BASE_HTTP}/register", json={"username": username})
         if r.status_code not in (201, 409):
             r.raise_for_status()
 
-def seed() -> str:
-    """Récupère la seed via GET /seed."""
-    reponse=httpx.get(f"{BASE_HTTP}/seed",timeout=5.0)
-    reponse.raise_for_status()
-    return reponse.json()["seed"]
 
-def publier_clés(username,cle_pub):
+def obtenir_seed() -> str:
+    """Récupère une seed d'entropie de 64 octets en hexadécimal via GET /seed."""
+    r = httpx.get(f"{BASE_HTTP}/seed", timeout=5.0)
+    r.raise_for_status()
+    return r.json()["seed"]
+
+
+def publier_cle(username: str, cle_publique: dict) -> None:
+    """Publie la clé publique RSA d'un utilisateur via POST /publickey."""
+    payload = {
+        "username": username,
+        "n": cle_publique["n"],
+        "e": cle_publique["e"],
+    }
     with httpx.Client() as client:
-        r = client.post(f"{BASE_HTTP}/publickey", json={"username": username,"n":cle_pub["n"],"e":cle_pub["e"]})
-        if r.status_code !=201:
+        r = client.post(f"{BASE_HTTP}/publickey", json=payload)
+        if r.status_code != 201:
             r.raise_for_status()
-            
-def récuperer_clés(destinataire:str) -> tuple[int, int]:
-    """Récupère la seed via GET /seed."""
-    reponse=httpx.get(f"{BASE_HTTP}/publickey/{destinataire}",timeout=5.0)
-    reponse.raise_for_status()
-    return reponse.json()["n"],reponse.json()["e"]
+
+
+def recuperer_cle(destinataire: str) -> dict:
+    """Récupère la clé publique RSA d'un autre utilisateur via GET /publickey/{username}."""
+    r = httpx.get(f"{BASE_HTTP}/publickey/{destinataire}", timeout=5.0)
+    r.raise_for_status()
+    data = r.json()
+    return {"n": data["n"], "e": data["e"]}
 
 def create_rsa_keys(username: str) -> tuple:
     seed_hex=seed()
