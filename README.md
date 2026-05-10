@@ -9,8 +9,9 @@
 
 - [Contexte](#contexte)
 - [Installation](#installation)
-- [V1  Preuve de concept](#v1--preuve-de-concept)
-- [V2  Multi-images et chiffrement de fichier](#v2--multi-images-et-chiffrement-de-fichier)
+- [V1 : Preuve de concept](#v1--preuve-de-concept)
+- [V2 : Multi-images et chiffrement de fichier](#v2--multi-images-et-chiffrement-de-fichier)
+- [V3 : Chat chiffré client-serveur (RSA + AES-256-GCM)](#v3--chat-chiffré-client-serveur-rsa--aes-256-gcm)
 - [Documentation](#documentation)
 
 ---
@@ -37,7 +38,7 @@ pip install -r requirements.txt
 
 ---
 
-## V1 Preuve de concept
+## V1 : Preuve de concept
 
 L'objectif de cette version est de faire fonctionner la pipeline de bout en bout avec le minimum de complexité.
 
@@ -100,7 +101,7 @@ python poc.py
 
 ---
 
-## V2 Multi-images et chiffrement de fichier
+## V2 : Multi-images et chiffrement de fichier
 
 La V2 renforce l'entropie en passant d'une photo fixe à plusieurs captures d'écran d'une vidéo, et chiffre désormais un fichier `.txt` complet.
 
@@ -169,16 +170,117 @@ Placer le texte à chiffrer dans `docs/message.txt`, puis :
 cd src
 python main.py
 ```
-##### Exemple de sortie :
-```
-Message original :
-Bonjour, ceci est mon message secret...
 
-Fichier chiffré écrit   : docs/message_chiffre.txt
-Fichier déchiffré écrit : docs/message_dechiffre.txt
+---
 
-Succès ✅
+## V3 : Chat chiffré client-serveur (RSA + AES-256-GCM)
+
+La V3 introduit une architecture réseau complète : un serveur FastAPI sert d'oracle d'entropie et de relais, deux clients s'échangent des messages chiffrés de bout en bout via WebSocket.
+
+### Ce qui change
+
+- **Serveur FastAPI** : fournit la seed d'entropie (`GET /seed`), stocke les clés publiques (`POST /publickey`), relaie les messages via WebSocket (`/chat`) sans pouvoir les lire
+- **Chiffrement hybride** : RSA pour l'échange de la clé de session, AES-256-GCM pour les messages
+- **3 entiers dérivés** depuis la seed : `RSA_P`, `RSA_Q` pour les clés RSA, `AES_KEY` pour la clé de session
+
+### Contraintes
+
+- Un serveur central gère l'entropie, le registre de clés publiques et le relais
+- Le chiffrement et déchiffrement se font **exclusivement côté client**
+- Stockage **local**
+
+### Architecture
+
 ```
+Projet-cryptage-lampe-lave/
+├── docs/
+│   ├── Notes_V3.md
+│   └── Pictures/
+├── src/
+│   ├── server/
+│   │   ├── server.py               # FastAPI : /seed, /register, /publickey, WS /chat
+│   │   ├── number_generator/
+│   │   │   └── setup.py            # Génération de la seed côté serveur
+│   │   └── Pictures/               # Frames lampe à lave du serveur
+│   ├── client/
+│   │   └── client.py               # Client interactif : handshake RSA + chat AES-GCM
+│   ├── encrypt_decrypt/
+│   │   ├── key_generator.py        # Miller-Rabin, RSA, dérivation clé AES
+│   │   └── encrypt_decrypt.py      # chiffrer_RSA, dechiffrer_RSA, AES-GCM
+│   └── main.py                     # Test local sans serveur
+├── requirements.txt
+└── README.md
+```
+
+### Pipeline
+
+```
+ALICE                        SERVEUR                        BOB
+  |                             |                             |
+  | génère clé_session (AES)    |                             |
+  |                             |                             |
+  |-- demande clé publique Bob →|                             |
+  |← clé publique Bob ----------|                             |
+  |                             |                             |
+  | chiffre avec clé_pub_Bob    |                             |
+  |-- envoie paquet chiffré ---→|-- relaie à Bob ----------→  |
+  |                             |                             | déchiffre avec clé_priv_Bob
+  |                             |                             | obtient clé_session
+  |                             |                             |
+  |←════════ canal AES (clé_session partagée) ═══════════════→|
+```
+
+### Utilisation : 3 terminaux requis
+
+**Terminal 1 — Démarrer le serveur** (depuis la racine du projet)
+
+```bash
+uvicorn src.server.server:app --reload
+```
+
+Attendre :
+```
+INFO:     Uvicorn running on http://127.0.0.1:8000
+```
+
+---
+
+**Terminal 2 — Client B, le récepteur** (à lancer avant l'initiateur)
+
+```bash
+python -m src.client.client
+```
+
+```
+Username : bob
+Êtes-vous l'initiateur de la session ? (o/n) : n
+
+Connexion à ws://localhost:8000/chat?user=bob ...
+Connecté en tant que bob.
+```
+
+---
+
+**Terminal 3 — Client A, l'initiateur**
+
+```bash
+python -m src.client.client
+```
+
+```
+Username : alice
+Êtes-vous l'initiateur de la session ? (o/n) : o
+Username du destinataire : bob
+
+Connecté en tant que alice.
+Clé AES envoyée (chiffrée RSA) à bob.
+
+Chat en cours avec bob. Tape ton message + Entrée. Ctrl+C pour quitter.
+```
+
+Les deux clients peuvent maintenant s'écrire. Chaque message est chiffré en AES-256-GCM avant envoi, le serveur ne voit que des octets chiffrés.
+
+**Ctrl+C** dans un terminal client pour fermer la connexion.
 
 ---
 
@@ -186,6 +288,7 @@ Succès ✅
 
 | Fichier | Contenu |
 |---------|---------|
-| [`docs/Cryptologie.md`](docs/Cryptologie.md) | Chiffrement RSA : fonctionnement, preuves mathématiques, padding OAEP, sécurité |
+| [`docs/Cryptologie.md`](docs/Cryptologie.md) | Chiffrement : fonctionnement RSA, preuves mathématiques, padding OAEP, sécurité , utilisation AES-256-GCM|
 | [`docs/Notes_V1.md`](docs/Notes_V1.md) | Contraintes et décisions de la V1 |
 | [`docs/Notes_V2.md`](docs/Notes_V2.md) | Contraintes et décisions de la V2 |
+| [`docs/Notes_V3.md`](docs/Notes_V3.md) | Contraintes et décisions de la V3 |
