@@ -4,3 +4,5 @@ matplotlib
 fastapi
 uvicorn[standard]
 pydantic
+httpx
+cryptography
