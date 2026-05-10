@@ -215,7 +215,19 @@ Projet-cryptage-lampe-lave/
 ### Pipeline
 
 ```
-A rajouter
+ALICE                        SERVEUR                        BOB
+  |                             |                             |
+  | génère clé_session (AES)    |                             |
+  |                             |                             |
+  |-- demande clé publique Bob →|                             |
+  |← clé publique Bob ----------|                             |
+  |                             |                             |
+  | chiffre avec clé_pub_Bob    |                             |
+  |-- envoie paquet chiffré ---→|-- relaie à Bob ----------→  |
+  |                             |                             | déchiffre avec clé_priv_Bob
+  |                             |                             | obtient clé_session
+  |                             |                             |
+  |←════════ canal AES (clé_session partagée) ═══════════════→|
 ```
 
 ### Utilisation : 3 terminaux requis
