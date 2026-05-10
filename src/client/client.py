@@ -151,38 +151,28 @@ async def main_client() -> None:
     url = f"{BASE_WS}/chat?user={username}"
     print(f"\nConnexion à {url} ...")
     try:
-        async with websockets.connect(url) as ws:
-            print(f"Connecté en tant que {username}.")
+        url = f"{BASE_WS}/chat?user={username}"
+        print(f"\nConnexion à {url} ...")
+        try:
+            async with websockets.connect(url) as ws:
+                print(f"Connecté en tant que {username}.")
 
-            if est_initiateur:
-                await envoyer_cle_aes(ws, destinataire, cle_aes)
-
-            print("\nEn écoute. Ctrl+C pour quitter.\n")
-            async for raw in ws:
-                try:
-                    message = json.loads(raw)
-                except json.JSONDecodeError:
-                    print(f"[reçu non-JSON] {raw}")
-                    continue
-
-                type_msg = message.get("type")
-
-                if type_msg == "aes_key":
-                    if est_initiateur:
-                        # On ignore : on a déjà notre clé AES locale (cf. design QC).
-                        print(f"[ignoré] aes_key reçue alors que je suis initiateur")
-                        continue
-                    cle_aes = traiter_aes_key(message, priv)
+                if est_initiateur:
+                    await envoyer_cle_aes(ws, destinataire, cle_aes)
+                else:
+                    cle_aes, destinataire = await attendre_handshake_aes(ws, priv)
                     print(
-                        f"Clé AES reçue de {message.get('from')} et déchiffrée."
+                        f"Clé AES reçue de {destinataire}."
                         f"\nAperçu : {cle_aes[:8].hex()}... ({len(cle_aes)} octets)"
                     )
 
-                elif type_msg == "error":
-                    print(f"[erreur serveur] reason={message.get('reason')} to={message.get('to')}")
-
-                else:
-                    print(f"[reçu non géré] {message}")
+                print(f"\nChat en cours avec {destinataire}. Tape ton message + Entrée. Ctrl+C pour quitter.\n")
+                await asyncio.gather(
+                    boucle_envoyer(ws, cle_aes, destinataire),
+                    boucle_recevoir(ws, cle_aes),
+                )
+        except websockets.exceptions.ConnectionClosed as e:
+            print(f"\nFermée — code={e.code} reason={e.reason!r}")
     except websockets.exceptions.ConnectionClosed as e:
         print(f"\nFermée — code={e.code} reason={e.reason!r}")
 
@@ -199,6 +189,75 @@ def traiter_aes_key(message: dict, cle_privee: dict) -> bytes:
     if isinstance(cle_aes, str):
         cle_aes = cle_aes.encode("utf-8")
     return cle_aes
+
+async def attendre_handshake_aes(ws, cle_privee: dict) -> tuple[bytes, str]:
+    """
+    Côté récepteur : lit la WS jusqu'à recevoir un message `aes_key`,
+    le déchiffre, et retourne (cle_aes, destinataire) où destinataire
+    est l'expéditeur du handshake (notre interlocuteur).
+    """
+    async for raw in ws:
+        try:
+            message = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        if message.get("type") == "aes_key":
+            cle_aes = traiter_aes_key(message, cle_privee)
+            return cle_aes, message.get("from")
+        elif message.get("type") == "error":
+            print(f"[erreur serveur] {message.get('reason')}")
+    raise RuntimeError("WebSocket fermée avant le handshake AES.")
+
+
+async def boucle_envoyer(ws, cle_aes: bytes, destinataire: str) -> None:
+    """Lit le clavier, chiffre AES-GCM, envoie sur la WS."""
+    while True:
+        try:
+            texte = await asyncio.to_thread(input, "")
+        except EOFError:
+            return
+        if not texte:
+            continue
+
+        nonce, chiffre = chiffrement_AES(cle_aes, texte)
+        # AES-GCM : les 16 derniers octets de la sortie sont le tag d'authentification.
+        ciphertext = chiffre[:-16]
+        tag = chiffre[-16:]
+
+        message = {
+            "type": "message",
+            "to": destinataire,
+            "nonce": base64.b64encode(nonce).decode("ascii"),
+            "ciphertext": base64.b64encode(ciphertext).decode("ascii"),
+            "tag": base64.b64encode(tag).decode("ascii"),
+        }
+        await ws.send(json.dumps(message))
+
+
+async def boucle_recevoir(ws, cle_aes: bytes) -> None:
+    """Reçoit les messages, les déchiffre AES-GCM et les affiche."""
+    async for raw in ws:
+        try:
+            message = json.loads(raw)
+        except json.JSONDecodeError:
+            print(f"[non-JSON] {raw}")
+            continue
+
+        type_msg = message.get("type")
+        if type_msg == "message":
+            try:
+                nonce = base64.b64decode(message["nonce"])
+                ciphertext = base64.b64decode(message["ciphertext"])
+                tag = base64.b64decode(message["tag"])
+                chiffre = ciphertext + tag
+                texte = dechiffrement_AES(cle_aes, nonce, chiffre)
+                print(f"\n[{message.get('from')}] {texte}")
+            except Exception as exc:
+                print(f"[erreur déchiffrement] {type(exc).__name__}: {exc}")
+        elif type_msg == "error":
+            print(f"[erreur serveur] {message.get('reason')}")
+        else:
+            print(f"[type inconnu] {message}")
 
 if __name__ == "__main__":
 
