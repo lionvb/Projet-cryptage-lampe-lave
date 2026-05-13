@@ -7,11 +7,11 @@ Permet uniquement de valider que la stack ASGI tourne.
 Lancement depuis la racine du projet : >> uvicorn src.server.server:app --reload
 """
 import json
-import os
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, status
 from pydantic import BaseModel, Field
 
+import cv2
 from src.server.number_generator.setup import images_to_bytes
 
 async def envoyer_erreur(ws: WebSocket, raison: str, to: str | None = None) -> None:
@@ -104,14 +104,31 @@ def inscrire(demande: DemandeInscription) -> ReponseInscription:
     utilisateurs.add(demande.username)
     return ReponseInscription(username=demande.username, status="registered")
 
-PHOTO_PATH = os.path.join(os.path.dirname(__file__), "Pictures")
+def capturer_photo_webcam() -> bytes:
+    camera = cv2.VideoCapture(0)
+    if not camera.isOpened():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Webcam indisponible.",
+        )
+    try:
+        ok, frame = camera.read()
+        if not ok:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Impossible de lire un frame depuis la webcam.",
+            )
+        return images_to_bytes(frame)  # frame passée directement
+    finally:
+        camera.release()
+
 @app.get("/seed", response_model=ReponseSeed)
 def obtenir_seed() -> ReponseSeed:
     """
-    Renvoie une seed d'entropie de 64 octets (512 bits) en hexadécimal.
+    Capture une photo via la webcam du serveur, l'utilise comme
+    source d'entropie et renvoie une seed en hexadécimal.
     """
-    # Génération des clés RSA
-    seed = images_to_bytes(PHOTO_PATH).hex()
+    seed = capturer_photo_webcam().hex()
     return ReponseSeed(seed=seed)
 
 @app.post(

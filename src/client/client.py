@@ -38,7 +38,7 @@ def enregistrer(username: str) -> None:
 
 def obtenir_seed() -> str:
     """Récupère une seed d'entropie de 64 octets en hexadécimal via GET /seed."""
-    r = httpx.get(f"{BASE_HTTP}/seed", timeout=5.0)
+    r = httpx.get(f"{BASE_HTTP}/seed", timeout=30)
     r.raise_for_status()
     return r.json()["seed"]
 
