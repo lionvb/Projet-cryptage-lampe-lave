@@ -5,6 +5,8 @@ import base64
 import httpx
 import websockets
 
+"""python -m src.client.client"""
+
 from src.encrypt_decrypt.encrypt_decrypt import (
     chiffrer_RSA,
     dechiffrer_RSA,
