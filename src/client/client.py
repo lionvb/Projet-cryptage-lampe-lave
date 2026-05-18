@@ -19,9 +19,10 @@ from src.encrypt_decrypt.key_generator import (
     seed_vers_grands_entiers,
 )
 
+IP_SERV = ""
 
-BASE_HTTP = "http://localhost:8000"
-BASE_WS = "ws://localhost:8000"
+BASE_HTTP = f"http://{IP_SERV}:8000"
+BASE_WS = f"ws://{IP_SERV}:8000"  
 
 
 def set_username():
