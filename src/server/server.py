@@ -119,7 +119,12 @@ def capturer_photo_webcam() -> bytes:
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Impossible de lire un frame depuis la webcam.",
             )
-        return images_to_bytes(frame)  # frame passée directement
+        # Affichage 3 secondes puis fermeture
+        cv2.imshow("Entropie capturée", frame)
+        cv2.waitKey(3000)
+        cv2.destroyAllWindows()
+
+        return images_to_bytes(frame)
     finally:
         camera.release()
 
