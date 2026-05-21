@@ -115,8 +115,11 @@ def capturer_photo_webcam() -> bytes:
             detail="Webcam indisponible.",
         )
     try:
-        time.sleep(0.5)  # Laisse le temps à la webcam de s'initialiser
+        # Vider le buffer : lire et jeter les premières frames noires
+        for _ in range(10):
+            camera.read()
 
+        # Lire la frame exploitable
         ok, frame = camera.read()
         if not ok:
             raise HTTPException(
