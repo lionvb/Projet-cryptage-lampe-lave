@@ -1,18 +1,19 @@
 """
 Serveur FastAPI — V3 du projet lava_entropy.
 
-Lancement en localhost      : >> uvicorn src.server.server:app --reload
-Lancement en réseau local   : >> uvicorn src.server.server:app --host 0.0.0.0 --port 8000
+Étape 1 : squelette minimal.
+Permet uniquement de valider que la stack ASGI tourne.
+
+Lancement en localhost : >> uvicorn src.server.server:app --reload
+Lancemnet en réseau local : >> uvicorn src.server.server:app --host 0.0.0.0 --port 8000
 """
 import json
-import threading
 
-import cv2
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, status
 from pydantic import BaseModel, Field
 
+import cv2
 from src.server.number_generator.setup import images_to_bytes
-
 
 async def envoyer_erreur(ws: WebSocket, raison: str, to: str | None = None) -> None:
     """Envoie un message d'erreur structuré à un client WS."""
@@ -21,19 +22,23 @@ async def envoyer_erreur(ws: WebSocket, raison: str, to: str | None = None) -> N
         payload["to"] = to
     await ws.send_text(json.dumps(payload))
 
-
 app = FastAPI(title="lava_entropy — serveur V3")
 
-utilisateurs:   set[str]            = set()
-cles_publiques: dict[str, dict]     = {}
-connexions:     dict[str, WebSocket] = {}
+# Ensemble des usernames enregistrés via POST /register.
+utilisateurs: set[str] = set()
 
-# Garde la dernière frame capturée pour l'affichage continu
-_derniere_frame = None
-_lock_frame = threading.Lock()
+# Clés publiques RSA des utilisateurs
+cles_publiques: dict[str, dict] = {}
+
+# Connexions WebSocket actives : 
+connexions: dict[str, WebSocket] = {}
 
 
-# ── Schémas Pydantic ─────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Schémas Pydantic
+# ---------------------------------------------------------------------------
+# Pydantic valide automatiquement les corps de requête/réponse et alimente
+# la doc Swagger générée par FastAPI sur /docs.
 
 class DemandeInscription(BaseModel):
     """Corps de requête de POST /register."""
@@ -68,43 +73,39 @@ class CleePublique(BaseModel):
     n: int
     e: int
 
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
 
-# ── Affichage de la frame sur le serveur ─────────────────────────────────────
+@app.get("/")
+def racine():
+    """Endpoint de santé : vérifie simplement que le serveur répond."""
+    return {"status": "ok"}
 
-def _afficher_frame(frame, username: str) -> None:
+
+@app.post(
+    "/register",
+    response_model=ReponseInscription,
+    status_code=status.HTTP_201_CREATED,
+)
+def inscrire(demande: DemandeInscription) -> ReponseInscription:
     """
-    Affiche la frame capturée dans une fenêtre OpenCV sur l'écran du serveur.
+    Enregistre un nouvel utilisateur.
 
-    L'affichage est délégué à un thread séparé pour ne pas bloquer
-    la réponse HTTP (cv2.waitKey est bloquant).
-
-    La fenêtre se ferme automatiquement après 3 secondes, ou immédiatement
-    si l'utilisateur appuie sur une touche.
+    - 201 Created : username libre, inscription effectuée.
+    - 409 Conflict : username déjà pris.
+    - 422 Unprocessable Entity : validation Pydantic échouée (auto par FastAPI).
     """
-    def _show():
-        titre = f"Seed capturée — demande de : {username}"
-        cv2.imshow(titre, frame)
-        cv2.waitKey(3000)   # 3 secondes puis fermeture automatique
-        cv2.destroyWindow(titre)
+    if demande.username in utilisateurs:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Username '{demande.username}' déjà utilisé.",
+        )
 
-    thread = threading.Thread(target=_show, daemon=True)
-    thread.start()
+    utilisateurs.add(demande.username)
+    return ReponseInscription(username=demande.username, status="registered")
 
-
-# ── Capture webcam + seed ─────────────────────────────────────────────────────
-
-def capturer_photo_webcam(username: str) -> bytes:
-    """
-    Capture une frame depuis la webcam du serveur.
-
-    - Affiche la frame dans une fenêtre OpenCV (3 s) pour que l'opérateur
-      du serveur voie quelle image a servi à générer la seed.
-    - Retourne le hash SHA-512 (64 octets) produit par images_to_bytes().
-
-    Lève HTTP 503 si la webcam est indisponible ou ne répond pas.
-    """
-    global _derniere_frame
-
+def capturer_photo_webcam() -> bytes:
     camera = cv2.VideoCapture(0)
     if not camera.isOpened():
         raise HTTPException(
@@ -113,35 +114,22 @@ def capturer_photo_webcam(username: str) -> bytes:
         )
     try:
         ok, frame = camera.read()
-        if not ok or frame is None:
+        if not ok:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Impossible de lire un frame depuis la webcam.",
             )
-
-        # Sauvegarder la frame et l'afficher sur l'écran du serveur
-        with _lock_frame:
-            _derniere_frame = frame.copy()
-
-        _afficher_frame(frame, username)
-
-        # Générer la seed depuis la frame
-        return images_to_bytes(frame)
-
+        return images_to_bytes(frame)  # frame passée directement
     finally:
         camera.release()
 
 @app.get("/seed", response_model=ReponseSeed)
-def obtenir_seed(user: str = "inconnu") -> ReponseSeed:
+def obtenir_seed() -> ReponseSeed:
     """
-    Capture une photo via la webcam du serveur et renvoie la seed en hex.
-
-    Passer le paramètre ?user=<username> pour identifier la demande
-    dans la fenêtre d'affichage.
-
-    Exemple : GET /seed?user=alice
+    Capture une photo via la webcam du serveur, l'utilise comme
+    source d'entropie et renvoie une seed en hexadécimal.
     """
-    seed = capturer_photo_webcam(username=user).hex()
+    seed = capturer_photo_webcam().hex()
     return ReponseSeed(seed=seed)
 
 @app.post(
