@@ -15,6 +15,8 @@ from pydantic import BaseModel, Field
 import cv2
 from src.server.number_generator.setup import images_to_bytes
 
+import time
+
 async def envoyer_erreur(ws: WebSocket, raison: str, to: str | None = None) -> None:
     """Envoie un message d'erreur structuré à un client WS."""
     payload = {"type": "error", "reason": raison}
@@ -113,13 +115,15 @@ def capturer_photo_webcam() -> bytes:
             detail="Webcam indisponible.",
         )
     try:
+        time.sleep(0.5)  # Laisse le temps à la webcam de s'initialiser
+
         ok, frame = camera.read()
         if not ok:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Impossible de lire un frame depuis la webcam.",
             )
-        # Affichage 3 secondes puis fermeture
+
         cv2.imshow("Entropie capturée", frame)
         cv2.waitKey(3000)
         cv2.destroyAllWindows()
